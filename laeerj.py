@@ -37,7 +37,7 @@ channel_ids = [
     "yayinsmarts", "yayinsms2", "yayinnbatv", 
     "yayinex1", "yayinex2", "yayinex3", 
     "yayinex4", "yayinex5", "yayinex6",
-    "yayinex7", "yayinex8"
+    "yayinex7", "yayinex8", "yayineu1", "yayineu2"
 ]
 
 # İstenen Sabit Başlık

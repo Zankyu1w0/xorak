@@ -1,4 +1,4 @@
-name: Update Streams
+name: Go-ALS Streams
 
 on:
   schedule:

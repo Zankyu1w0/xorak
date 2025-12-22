@@ -12,7 +12,7 @@ base = "https://trgoals"
 domain = ""
 
 print("Domain aranıyor...")
-for i in range(1490, 2101):
+for i in range(1495, 2101):
     test_domain = f"{base}{i}.xyz"
     try:
         response = requests.head(test_domain, timeout=2)

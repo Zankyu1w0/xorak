@@ -4,7 +4,7 @@ import os
 
 # --- AYARLAR ---
 START_URL = "https://url24.link/AtomSporTV"
-OUTPUT_FOLDER = "atom"  # Klasör adı
+OUTPUT_FOLDER = "atom"
 GREEN = "\033[92m"
 RESET = "\033[0m"
 
@@ -17,7 +17,7 @@ HEADERS = {
     'Referer': 'https://url24.link/'
 }
 
-# --- SABİT M3U8 BAŞLIĞI (Selçuk örneğindeki gibi) ---
+# --- SABİT M3U8 BAŞLIĞI ---
 M3U8_HEADER = """#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-STREAM-INF:BANDWIDTH=5500000,AVERAGE-BANDWIDTH=8976000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",FRAME-RATE=25"""
@@ -95,7 +95,6 @@ def get_channels_list():
     ]
 
 def main():
-    # Klasör oluşturma (Selçuk mantığı)
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
 
@@ -113,16 +112,11 @@ def main():
         m3u8_url = get_channel_m3u8(channel['id'], base_domain)
         
         if m3u8_url:
-            # Dosya adını ID'den alıyoruz (örn: bein-sports-1.m3u8)
             file_name = f"{channel['id']}.m3u8"
             file_path = os.path.join(OUTPUT_FOLDER, file_name)
             
-            # İçeriği hazırla (Header + VLC Ayarları + Link)
-            # Atom linkleri Referrer olmadan çalışmayabilir, o yüzden VLC taglerini ekliyorum.
-            file_content = f"{M3U8_HEADER}\n"
-            file_content += f"#EXTVLCOPT:http-referrer={base_domain}\n"
-            file_content += f"#EXTVLCOPT:http-user-agent={HEADERS['User-Agent']}\n"
-            file_content += f"{m3u8_url}"
+            # Değişiklik: Sadece header ve link var, EXTVLCOPT kaldırıldı.
+            file_content = f"{M3U8_HEADER}\n{m3u8_url}"
             
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(file_content)

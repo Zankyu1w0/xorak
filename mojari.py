@@ -10,18 +10,20 @@ warnings.filterwarnings('ignore')
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
 }
 
+# DOSYAYA YAZILACAK BAŞLIK
 M3U8_HEADER = """#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-STREAM-INF:BANDWIDTH=5500000,AVERAGE-BANDWIDTH=8976000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",FRAME-RATE=25"""
 
-# Sadece domain bulmak için kullanılan proxy
-PROXY_FOR_SEARCH = "https://proxy.freecdn.workers.dev/?url="
+# TARAMA İÇİN GEREKLİLER
+PROXY = "https://proxy.freecdn.workers.dev/?url="
 START_SITE = "https://taraftariumizle.org"
 OUTPUT_FOLDER = "Emu"
 
+# KANAL LİSTESİ
 CHANNELS = [
     "androstreamlivebiraz1", "androstreamlivebs1", "androstreamlivebs2", "androstreamlivebs3",
     "androstreamlivebs4", "androstreamlivebs5", "androstreamlivebsm1", "androstreamlivebsm2",
@@ -35,78 +37,74 @@ CHANNELS = [
     "androstreamliveexn8"
 ]
 
-def get_with_proxy(url, ref=None):
+def get_src(u, ref=None):
     try:
-        headers = HEADERS.copy()
-        if ref: headers['Referer'] = ref
-        # Domaini bulabilmek için proxy üzerinden istek atıyoruz
-        r = requests.get(PROXY_FOR_SEARCH + url, headers=headers, verify=False, timeout=15)
+        current_headers = HEADERS.copy()
+        if ref: current_headers['Referer'] = ref
+        r = requests.get(PROXY + u, headers=current_headers, verify=False, timeout=20)
         return r.text if r.status_code == 200 else None
     except:
         return None
+
+def extract_number(url):
+    nums = re.findall(r'\d+', url)
+    return int(nums[-1]) if nums else 0
 
 def main():
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
 
-    print("🔍 Proxy desteğiyle güncel domain aranıyor...")
+    print("🔍 Domain tarama başlatıldı...")
     
-    # 1. Kaynak siteden proxy ile veri çek
-    html1 = get_with_proxy(START_SITE)
-    if not html1: 
-        print("❌ Ana siteye erişilemedi.")
-        return
+    # 1. AMP linkini bul
+    h1 = get_src(START_SITE)
+    if not h1: return
+    s = BeautifulSoup(h1, 'html.parser')
+    lnk = s.find('link', rel='amphtml')
+    if not lnk: return
+    amp = lnk.get('href')
+
+    # 2. Iframe linkini bul
+    h2 = get_src(amp)
+    if not h2: return
+    m = re.search(r'\[src\]="appState\.currentIframe".*?src="(https?://[^"]+)"', h2, re.DOTALL)
+    if not m: return
+    ifr = m.group(1)
+
+    # 3. BaseUrls listesini çek
+    h3 = get_src(ifr, ref=amp)
+    if not h3: return
+    bm = re.search(r'baseUrls\s*=\s*\[(.*?)\]', h3, re.DOTALL)
+    if not bm: return
+
+    # URL'leri temizle ve listele
+    cl = bm.group(1).replace('"', '').replace("'", "").replace("\n", "").replace("\r", "")
+    srvs = [x.strip().rstrip('/') for x in cl.split(',') if x.strip().startswith("http")]
     
-    soup = BeautifulSoup(html1, 'html.parser')
-    amp_tag = soup.find('link', rel='amphtml')
-    if not amp_tag: return
-    amp_url = amp_tag.get('href')
-
-    html2 = get_with_proxy(amp_url)
-    if not html2: return
-
-    iframe_match = re.search(r'src="(https?://[^"]+)"', html2)
-    if not iframe_match: return
-    iframe_url = iframe_match.group(1)
-
-    # 2. Iframe içinden domain listesini çek
-    html3 = get_with_proxy(iframe_url, ref=amp_url)
-    if not html3: return
-
-    urls_match = re.search(r'baseUrls\s*=\s*\[(.*?)\]', html3, re.DOTALL)
-    if not urls_match: return
-
-    raw_urls = urls_match.group(1).replace('"', '').replace("'", "").replace("\n", "").split(',')
-    clean_urls = [u.strip().rstrip('/') for u in raw_urls if "http" in u]
-
-    if not clean_urls:
-        print("❌ Liste bulunamadı.")
+    if not srvs:
+        print("❌ Domain bulunamadı.")
         return
 
-    # 3. Sayısı en büyük olan domaini seç (Örn: ...15.xyz > ...14.xyz)
-    def extract_number(url):
-        nums = re.findall(r'\d+', url)
-        return int(nums[-1]) if nums else 0
+    # 4. En büyük sayılı domaini seç
+    active_domain = max(srvs, key=extract_number)
+    print(f"✅ En güncel domain: {active_domain}")
 
-    best_domain = max(clean_urls, key=extract_number)
-    print(f"✅ Seçilen En Güncel Domain: {best_domain}")
-
-    # 4. Dosyaları oluştur (Kanal linklerinde PROXY YOK)
+    # 5. Emu klasörüne dosyaları yaz
     count = 0
     for cid in CHANNELS:
-        # Link yapısını kur (checklist kontrolü)
-        base_link = f"{best_domain}/{cid}.m3u8" if "checklist" in best_domain else f"{best_domain}/checklist/{cid}.m3u8"
-        base_link = base_link.replace("checklist//", "checklist/")
+        # Link yapısını kur
+        furl = f"{active_domain}/{cid}.m3u8" if "checklist" in active_domain else f"{active_domain}/checklist/{cid}.m3u8"
+        furl = furl.replace("checklist//", "checklist/")
         
-        # Dosyaya sadece temiz linki yazıyoruz
-        file_content = f"{M3U8_HEADER}\n{base_link}"
+        # Dosya içeriği (PROXY YOK, direkt link)
+        file_content = f"{M3U8_HEADER}\n{furl}"
+        
         file_path = os.path.join(OUTPUT_FOLDER, f"{cid}.m3u8")
-        
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(file_content)
         count += 1
 
-    print(f"🚀 Başarılı! {count} kanal {best_domain} üzerinden güncellendi.")
+    print(f"🏁 Tamamlandı! {count} dosya güncellendi.")
 
 if __name__ == "__main__":
     main()

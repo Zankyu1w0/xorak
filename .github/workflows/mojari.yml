@@ -1,4 +1,4 @@
-name: Update Streams
+name: Update Mojari
 
 on:
   schedule:

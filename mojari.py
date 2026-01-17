@@ -1,14 +1,16 @@
 import requests
+from bs4 import BeautifulSoup
 import re
 import os
+import urllib3
 import warnings
 
 # --- AYARLAR ---
 warnings.filterwarnings('ignore')
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Referer": "https://www.google.com/"
 }
 
 # --- SABİT M3U8 BAŞLIĞI ---
@@ -16,121 +18,128 @@ M3U8_HEADER = """#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-STREAM-INF:BANDWIDTH=5500000,AVERAGE-BANDWIDTH=8976000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",FRAME-RATE=25"""
 
-# --- CORS PROXY LİNKİ ---
-PROXY_PREFIX = "https://tools.odpch.ch/tmp/cors-proxy?url="
+# --- YENİ PROXY ---
+PROXY_PREFIX = "https://proxy.freecdn.workers.dev/?url="
+START_SITE = "https://taraftariumizle.org"
 
 # --- KLASÖR ADI ---
 OUTPUT_FOLDER = "Emu"
 
-# --- KANAL ID LİSTESİ ---
-CHANNEL_IDS = [
-    "androstreamlivebiraz1",
-    "androstreamlivebs1",
-    "androstreamlivebs2",
-    "androstreamlivebs3",
-    "androstreamlivebs4",
-    "androstreamlivebs5",
-    "androstreamlivebsm1",
-    "androstreamlivebsm2",
-    "androstreamlivess1",
-    "androstreamlivess2",
-    "androstreamlivets1",
-    "androstreamlivets2",
-    "androstreamlivets3",
-    "androstreamlivets4",
-    "androstreamlivesm1",
-    "androstreamlivesm2",
-    "androstreamlivees1",
-    "androstreamlivees2",
-    "androstreamlivetb",
-    "androstreamlivetb1",
-    "androstreamlivetb2",
-    "androstreamlivetb3",
-    "androstreamlivetb4",
-    "androstreamlivetb5",
-    "androstreamlivetb6",
-    "androstreamlivetb7",
-    "androstreamlivetb8",
-    "androstreamliveexn1",
-    "androstreamliveexn2",
-    "androstreamliveexn3",
-    "androstreamliveexn4",
-    "androstreamliveexn5",
-    "androstreamliveexn6",
-    "androstreamliveexn7",
+# --- KANAL LİSTESİ ---
+CHANNELS = [
+    "androstreamlivebiraz1", "androstreamlivebs1", "androstreamlivebs2", "androstreamlivebs3",
+    "androstreamlivebs4", "androstreamlivebs5", "androstreamlivebsm1", "androstreamlivebsm2",
+    "androstreamlivess1", "androstreamlivess2", "androstreamlivets", "androstreamlivets1",
+    "androstreamlivets2", "androstreamlivets3", "androstreamlivets4", "androstreamlivesm1",
+    "androstreamlivesm2", "androstreamlivees1", "androstreamlivees2", "androstreamlivetb",
+    "androstreamlivetb1", "androstreamlivetb2", "androstreamlivetb3", "androstreamlivetb4",
+    "androstreamlivetb5", "androstreamlivetb6", "androstreamlivetb7", "androstreamlivetb8",
+    "androstreamliveexn", "androstreamliveexn1", "androstreamliveexn2", "androstreamliveexn3",
+    "androstreamliveexn4", "androstreamliveexn5", "androstreamliveexn6", "androstreamliveexn7",
     "androstreamliveexn8"
 ]
 
+def get_src(u, ref=None):
+    try:
+        temp_headers = HEADERS.copy()
+        if ref: temp_headers['Referer'] = ref
+        r = requests.get(PROXY_PREFIX + u, headers=temp_headers, verify=False, timeout=20)
+        return r.text if r.status_code == 200 else None
+    except:
+        return None
+
 def main():
-    # Klasör yoksa oluştur
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
 
-    print("--- Yayın Tarayıcı Başlatıldı ---")
+    print("--- Gelişmiş Yayın Tarayıcı Başlatıldı ---")
     
-    # 1. ADIM: Aktif Domaini Bul
-    print("🔍 Aktif domain aranıyor (44-200)...")
-    active_domain = None
+    # 1. ADIM: Aktif Sunucuyu Bul (Deep Link Scraping)
+    print("🔍 Aktif yayın sunucusu aranıyor...")
     
-    for i in range(44, 200):
-        url = f"https://seep.eu.org/https://birazcikspor{i}.xyz/"
+    h1 = get_src(START_SITE)
+    if not h1:
+        print("❌ Ana siteye erişilemedi.")
+        return
+
+    s = BeautifulSoup(h1, 'html.parser')
+    lnk = s.find('link', rel='amphtml')
+    if not lnk:
+        print("❌ AMP linki bulunamadı.")
+        return
+    amp_url = lnk.get('href')
+
+    h2 = get_src(amp_url)
+    if not h2: return
+
+    m = re.search(r'\[src\]="appState\.currentIframe".*?src="(https?://[^"]+)"', h2, re.DOTALL)
+    if not m:
+        print("❌ Iframe bulunamadı.")
+        return
+    iframe_url = m.group(1)
+
+    h3 = get_src(iframe_url, ref=amp_url)
+    if not h3: return
+
+    bm = re.search(r'baseUrls\s*=\s*\[(.*?)\]', h3, re.DOTALL)
+    if not bm:
+        print("❌ Base URL listesi alınamadı.")
+        return
+
+    cl = bm.group(1).replace('"', '').replace("'", "").replace("\n", "").replace("\r", "")
+    srvs = [x.strip() for x in cl.split(',') if x.strip().startswith("http")]
+    
+    if not srvs:
+        print("❌ Geçerli sunucu adresi bulunamadı.")
+        return
+
+    # 2. ADIM: Çalışan Sunucuyu Test Et
+    active_server = None
+    test_id = "androstreamlivebs1"
+    
+    print(f"⚡ {len(srvs)} sunucu test ediliyor...")
+    for sv in srvs:
+        sv = sv.rstrip('/')
+        # Link yapısını düzelt
+        turl = f"{sv}/{test_id}.m3u8" if "checklist" in sv else f"{sv}/checklist/{test_id}.m3u8"
+        turl = turl.replace("checklist//", "checklist/")
+        
         try:
-            response = requests.head(url, headers=HEADERS, timeout=2)
-            if response.status_code == 200:
-                active_domain = url
-                print(f"✅ Aktif Domain: {active_domain}")
+            tr = requests.get(PROXY_PREFIX + turl, headers=HEADERS, verify=False, timeout=7)
+            if tr.status_code == 200:
+                active_server = sv
+                print(f"✅ Çalışan Sunucu: {active_server}")
                 break
         except:
             continue
-    
-    if not active_domain:
-        print("❌ Domain bulunamadı. Çıkış yapılıyor.")
+
+    if not active_server:
+        print("❌ Çalışan aktif bir sunucu bulunamadı.")
         return
 
-    # 2. ADIM: Base URL Çek
-    HEADERS['Referer'] = active_domain
-    base_url = ""
-    
-    try:
-        response = requests.get(active_domain, headers=HEADERS, timeout=10)
-        id_match = re.search(r'event\.html\?id=([a-zA-Z0-9_]+)', response.text)
-        found_id = id_match.group(1) if id_match else "androstreamlivebiraz1"
-        
-        event_url = f"{active_domain}event.html?id={found_id}"
-        event_response = requests.get(event_url, headers=HEADERS, timeout=10)
-        base_match = re.search(r'const\s+baseurls\s*=\s*\[\s*"([^"]+)"', event_response.text)
-        
-        if base_match:
-            base_url = base_match.group(1)
-            print(f"📡 Sunucu Linki Alındı: {base_url}")
-        else:
-            print("❌ Yayın sunucusu bulunamadı.")
-            return
-
-    except Exception as e:
-        print(f"❌ Hata: {e}")
-        return
-
-    # 3. ADIM: Dosyaları Oluştur (Proxy Ekleyerek)
-    print(f"⚡ Linkler dönüştürülüp '{OUTPUT_FOLDER}' klasörüne kaydediliyor...")
+    # 3. ADIM: Dosyaları Oluştur
+    print(f"📂 Dosyalar '{OUTPUT_FOLDER}' klasörüne kaydediliyor...")
     
     count = 0
-    for file_id in CHANNEL_IDS:
-        raw_stream_url = f"{base_url}{file_id}.m3u8"
-        final_url = f"{PROXY_PREFIX}{raw_stream_url}"
+    for cid in CHANNELS:
+        # Link formatını ayarla
+        furl = f"{active_server}/{cid}.m3u8" if "checklist" in active_server else f"{active_server}/checklist/{cid}.m3u8"
+        furl = furl.replace("checklist//", "checklist/")
         
-        file_content = f"{M3U8_HEADER}\n{final_url}"
+        final_proxy_url = f"{PROXY_PREFIX}{furl}"
+        file_content = f"{M3U8_HEADER}\n{final_proxy_url}"
         
-        # Emu klasörüne kaydet
-        file_path = os.path.join(OUTPUT_FOLDER, f"{file_id}.m3u8")
-        
+        file_path = os.path.join(OUTPUT_FOLDER, f"{cid}.m3u8")
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(file_content)
         
         count += 1
-        print(f"💾 Kaydedildi: {file_id}.m3u8")
+        print(f"💾 Güncellendi: {cid}.m3u8")
 
-    print(f"\n✅ İŞLEM TAMAM! Toplam {count} dosya güncellendi.")
+    print(f"\n✨ İŞLEM TAMAMLANDI!")
+    print(f"📁 Konum: {os.path.abspath(OUTPUT_FOLDER)}")
+    print(f"📊 Toplam: {count} kanal.")
 
 if __name__ == "__main__":
     main()
+            

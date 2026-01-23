@@ -22,7 +22,7 @@ active_domain = ""
 
 print("🔍 Ana site domaini aranıyor...")
 # Hızlandırmak için timeout süresini optimize ettik
-for i in range(1495, 2101):
+for i in range(1509, 2101):
     test_url = f"{base_site_name}{i}.xyz"
     try:
         response = requests.get(test_url, headers=HEADERS, timeout=1, verify=False)

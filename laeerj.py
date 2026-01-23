@@ -32,7 +32,7 @@ def find_trgoals_domain():
     base_site_name = "https://trgoals"
     active_domain = ""
     
-    for i in range(1495, 2101):
+    for i in range(1509, 2101):
         test_url = f"{base_site_name}{i}.xyz"
         try:
             response = requests.get(test_url, headers=HEADERS, timeout=2, verify=False)

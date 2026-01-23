@@ -3,6 +3,7 @@ import re
 import os
 import urllib3
 import warnings
+from urllib.parse import urlparse
 
 # SSL ve uyarıları kapat
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -51,7 +52,7 @@ header_content = """#EXTM3U
 
 print("📂 Yayın linkleri ayıklanıyor...")
 
-# 2. BÖLÜM: Yayın Sunucusunu (B_URL) ve Kanalları Bul
+# 2. BÖLÜM: Yayın Sunucusunu (Ana Domaini) ve Kanalları Bul
 for channel_id in channel_ids:
     target_url = f"{active_domain}/channel.html?id={channel_id}"
     try:
@@ -60,35 +61,81 @@ for channel_id in channel_ids:
         
         r = requests.get(target_url, headers=req_headers, timeout=5, verify=False)
         
-        # ESNEK REGEX: Değişken adı ne olursa olsun (B_URL, BASE_URL vb.) 
-        # tırnak içindeki http...sbs/ veya http...xyz/ formatındaki linki bulur.
-        found_url = ""
-        # 1. Yöntem: B_URL veya BASE_URL araması
-        match = re.search(r'(?:B_URL|BASE_URL|server|link)\s*=\s*["\'](https?://[^"\']+/ )["\']', r.text)
+        # Sayfadaki TÜM URL'leri topla
+        all_urls = re.findall(r'https?://[a-zA-Z0-9_.\-]+(?:\.[a-zA-Z]{2,6})+/', r.text)
         
-        if match:
-            found_url = match.group(1)
-        else:
-            # 2. Yöntem: Eğer değişken ismi tamamen değişirse, tırnak içindeki uygun URL'yi ara
-            urls = re.findall(r'["\'](https?://[a-z0-9.]+\.(?:sbs|xyz|me|live|com|net)/)["\']', r.text)
-            if urls:
-                found_url = urls[0]
-
-        if found_url:
+        # Ana akış domainini bul (boş uçlu, genelde stream sunucusu)
+        stream_domain = ""
+        
+        for url in all_urls:
+            # URL'nin sonunda sadece "/" olmalı (boş uçlu)
+            parsed_url = urlparse(url)
+            
+            # Kritik kontrol: Boş uçlu olmalı ve yolu sadece "/" olmalı
+            if parsed_url.path == "/" and not parsed_url.query:
+                # Popüler domain uzantıları
+                domain_extensions = ['.com', '.net', '.xyz', '.live', '.me', '.org', '.tv']
+                for ext in domain_extensions:
+                    if ext in parsed_url.netloc:
+                        stream_domain = url
+                        break
+            
+            if stream_domain:
+                break
+        
+        # Eğer hala bulunamadıysa, alternatif yaklaşım
+        if not stream_domain and all_urls:
+            # En sık geçen domain'i bul
+            from collections import Counter
+            domain_counter = Counter()
+            
+            for url in all_urls:
+                parsed = urlparse(url)
+                domain_counter[parsed.netloc] += 1
+            
+            if domain_counter:
+                most_common_domain = domain_counter.most_common(1)[0][0]
+                # En sık geçen domain'i stream domaini olarak kabul et
+                for url in all_urls:
+                    if most_common_domain in url and urlparse(url).path == "/":
+                        stream_domain = url
+                        break
+        
+        if stream_domain:
             # Linkin sonunda / olduğundan emin ol ve kanalı ekle
-            found_url = found_url.rstrip('/') + '/'
-            stream_link = f"{found_url}{channel_id}.m3u8"
+            stream_domain = stream_domain.rstrip('/') + '/'
+            stream_link = f"{stream_domain}{channel_id}.m3u8"
             
             file_content = f"{header_content}\n{stream_link}"
             file_path = os.path.join(output_folder, f"{channel_id}.m3u8")
             
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(file_content)
-            print(f"✅ {channel_id}.m3u8 -> Sunucu: {found_url}")
+            print(f"✅ {channel_id}.m3u8 -> Sunucu: {stream_domain}")
         else:
             print(f"⚠️ {channel_id} için sunucu adresi bulunamadı.")
+            print(f"   Sayfadaki tüm URL'ler: {list(set(all_urls))[:5]}")
             
     except Exception as e:
         print(f"❌ {channel_id} hatası: {e}")
 
 print("\n🏁 Tüm işlemler bitti. 'streams' klasörünü kontrol et.")
+
+# 3. BÖLÜM: Tüm M3U8'leri birleştir
+print("\n🔗 Tüm kanalları birleştiriyorum...")
+all_streams_file = os.path.join(output_folder, "all_streams.m3u")
+try:
+    with open(all_streams_file, "w", encoding="utf-8") as master_file:
+        master_file.write("#EXTM3U\n")
+        
+        for channel_id in channel_ids:
+            channel_file = os.path.join(output_folder, f"{channel_id}.m3u8")
+            if os.path.exists(channel_file):
+                with open(channel_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content:
+                        master_file.write(content + "\n")
+    
+    print(f"✅ Tüm kanallar birleştirildi: {all_streams_file}")
+except Exception as e:
+    print(f"❌ Birleştirme hatası: {e}")

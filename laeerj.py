@@ -1,3 +1,5 @@
+kod çalışıyor aslında bir sorun yok
+
 import requests
 import re
 import os
@@ -159,29 +161,26 @@ header_content = """#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-STREAM-INF:BANDWIDTH=5500000,RESOLUTION=1920x1080,FRAME-RATE=25"""
 
-print("📂 Yayın linkleri ayıklanıyor...")
+print("📂 Base URL ayıklanıyor ve tüm kanallara uygulanıyor...")
 
-# 2. BÖLÜM: Kaynak Koddan baseUrl Ayıklama
+# 2. BÖLÜM: SADECE BİR KANALDAN BASEURL AYIKLA VE TÜM KANALLARA UYGULA
+found_base_url = None
 success_count = 0
 total_channels = len(channel_ids)
 
-for idx, channel_id in enumerate(channel_ids, 1):
+# Önce bir kanalda baseUrl'i bul
+for idx, channel_id in enumerate(channel_ids[:5], 1):  # İlk 5 kanalda dene
     channel_name = channel_names.get(channel_id, channel_id)
-    print(f"[{idx}/{total_channels}] {channel_name} aranıyor...")
+    print(f"🔍 Test kanalı {channel_name} aranıyor...")
     
     target_url = f"{active_domain}/channel.html?id={channel_id}"
     try:
-        # Referer eklemek bazı korumaları geçmek için önemlidir
         req_headers = HEADERS.copy()
         req_headers['Referer'] = active_domain + "/"
         
         r = requests.get(target_url, headers=req_headers, timeout=5, verify=False)
         
-        # baseUrl: "https://.../" formatını yakalar
-        # Hem ' hem " tırnak işaretlerini ve baseUrl anahtarını hedefler
-        found_url = ""
-        
-        # CONFIG içindeki baseUrl'i bulmak için özelleşmiş regex
+        # baseUrl: "https://.../" formatını yakala
         patterns = [
             r'CONFIG\s*=\s*{[^}]*baseUrl\s*:\s*["\'](https?://[^"\']+)["\']',
             r'baseUrl\s*[:=]\s*["\'](https?://[^"\']+)["\']',
@@ -193,32 +192,99 @@ for idx, channel_id in enumerate(channel_ids, 1):
         for pattern in patterns:
             match = re.search(pattern, r.text, re.IGNORECASE)
             if match:
-                found_url = match.group(1)
+                found_base_url = match.group(1)
                 break
         
-        if not found_url:
-            # Yedek: Eğer baseUrl etiketi yoksa ama bir stream domaini varsa onu yakala
+        if not found_base_url:
+            # Yedek regex
             backup_match = re.findall(r'["\'](https?://[a-z0-9.]+\.(?:sbs|xyz|me|live|com|net|pw)/)["\']', r.text)
             if backup_match:
-                found_url = backup_match[0]
+                found_base_url = backup_match[0]
 
-        if found_url:
-            # URL'nin temiz olduğundan ve / ile bittiğinden emin olalım
-            found_url = found_url.strip().rstrip('/') + '/'
-            stream_link = f"{found_url}{channel_id}.m3u8"
-            
-            file_content = f"{header_content}\n{stream_link}"
-            file_path = os.path.join(output_folder, f"{channel_id}.m3u8")
-            
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(file_content)
-            print(f"  ✅ {channel_name} -> {found_url[:50]}...")
-            success_count += 1
+        if found_base_url:
+            # URL'yi temizle
+            found_base_url = found_base_url.strip().rstrip('/') + '/'
+            print(f"✅ Base URL bulundu: {found_base_url}")
+            break
         else:
-            print(f"  ⚠️ {channel_name} için kaynak kodda baseUrl bulunamadı.")
+            print(f"  ⚠️ {channel_name} için baseUrl bulunamadı.")
             
     except Exception as e:
         print(f"  ❌ {channel_name} hatası: {str(e)[:50]}...")
+
+# Eğer baseUrl bulunduysa, TÜM kanallara uygula
+if found_base_url:
+    print(f"\n🚀 Bulunan base URL tüm kanallara uygulanıyor...")
+    
+    for idx, channel_id in enumerate(channel_ids, 1):
+        channel_name = channel_names.get(channel_id, channel_id)
+        
+        # Stream linkini oluştur
+        stream_link = f"{found_base_url}{channel_id}.m3u8"
+        
+        # M3U8 dosyasını oluştur
+        file_content = f"{header_content}\n{stream_link}"
+        file_path = os.path.join(output_folder, f"{channel_id}.m3u8")
+        
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(file_content)
+            print(f"  ✅ [{idx}/{total_channels}] {channel_name} -> {found_base_url[:40]}...")
+            success_count += 1
+        except Exception as e:
+            print(f"  ❌ [{idx}/{total_channels}] {channel_name} kayıt hatası: {str(e)[:30]}")
+else:
+    print("\n❌ Base URL bulunamadı! Her kanal ayrı ayrı kontrol ediliyor...")
+    
+    # Eski yöntemle her kanalı ayrı ayrı kontrol et
+    for idx, channel_id in enumerate(channel_ids, 1):
+        channel_name = channel_names.get(channel_id, channel_id)
+        print(f"[{idx}/{total_channels}] {channel_name} aranıyor...")
+        
+        target_url = f"{active_domain}/channel.html?id={channel_id}"
+        try:
+            req_headers = HEADERS.copy()
+            req_headers['Referer'] = active_domain + "/"
+            
+            r = requests.get(target_url, headers=req_headers, timeout=5, verify=False)
+            
+            found_url = None
+            
+            patterns = [
+                r'CONFIG\s*=\s*{[^}]*baseUrl\s*:\s*["\'](https?://[^"\']+)["\']',
+                r'baseUrl\s*[:=]\s*["\'](https?://[^"\']+)["\']',
+                r'const\s+baseUrl\s*=\s*["\'](https?://[^"\']+)["\']',
+                r'let\s+baseUrl\s*=\s*["\'](https?://[^"\']+)["\']',
+                r'var\s+baseUrl\s*=\s*["\'](https?://[^"\']+)["\']'
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, r.text, re.IGNORECASE)
+                if match:
+                    found_url = match.group(1)
+                    break
+            
+            if not found_url:
+                backup_match = re.findall(r'["\'](https?://[a-z0-9.]+\.(?:sbs|xyz|me|live|com|net|pw)/)["\']', r.text)
+                if backup_match:
+                    found_url = backup_match[0]
+
+            if found_url:
+                found_url = found_url.strip().rstrip('/') + '/'
+                stream_link = f"{found_url}{channel_id}.m3u8"
+                
+                file_content = f"{header_content}\n{stream_link}"
+                file_path = os.path.join(output_folder, f"{channel_id}.m3u8")
+                
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(file_content)
+                print(f"  ✅ {channel_name} -> {found_url[:50]}...")
+                success_count += 1
+            else:
+                print(f"  ⚠️ {channel_name} için kaynak kodda baseUrl bulunamadı.")
+                
+        except Exception as e:
+            print(f"  ❌ {channel_name} hatası: {str(e)[:50]}...")
 
 print(f"\n🏁 İşlem tamamlandı.")
 print(f"📊 Başarılı: {success_count}/{total_channels}")

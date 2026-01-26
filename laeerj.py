@@ -1,5 +1,3 @@
-kod çalışıyor aslında bir sorun yok
-
 import requests
 import re
 import os

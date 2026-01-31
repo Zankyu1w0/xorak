@@ -125,7 +125,7 @@ channel_ids = [
 
 # Kanal isimleri (isteğe bağlı, daha okunabilir çıktı için)
 channel_names = {
-    "trgoals/mono": "BeIN Sports 1",
+    "trgoals": "BeIN Sports 1",
     "zirve": "BeIN Sports 1",
     "yayin1": "BeIN Sports 1",
     "inat": "BeIN Sports 1",
@@ -218,8 +218,8 @@ if found_base_url:
     for idx, channel_id in enumerate(channel_ids, 1):
         channel_name = channel_names.get(channel_id, channel_id)
         
-        # Stream linkini oluştur
-        stream_link = f"{found_base_url}{channel_id}.m3u8"
+        # YENİ FORMAT: /kanaladi/mono.m3u8
+        stream_link = f"{found_base_url}{channel_id}/mono.m3u8"
         
         # M3U8 dosyasını oluştur
         file_content = f"{header_content}\n{stream_link}"
@@ -228,7 +228,7 @@ if found_base_url:
         try:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(file_content)
-            print(f"  ✅ [{idx}/{total_channels}] {channel_name} -> {found_base_url[:40]}...")
+            print(f"  ✅ [{idx}/{total_channels}] {channel_name} -> {found_base_url[:40]}.../{channel_id}/mono.m3u8")
             success_count += 1
         except Exception as e:
             print(f"  ❌ [{idx}/{total_channels}] {channel_name} kayıt hatası: {str(e)[:30]}")
@@ -270,14 +270,15 @@ else:
 
             if found_url:
                 found_url = found_url.strip().rstrip('/') + '/'
-                stream_link = f"{found_url}{channel_id}.m3u8"
+                # YENİ FORMAT: /kanaladi/mono.m3u8
+                stream_link = f"{found_url}{channel_id}/mono.m3u8"
                 
                 file_content = f"{header_content}\n{stream_link}"
                 file_path = os.path.join(output_folder, f"{channel_id}.m3u8")
                 
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(file_content)
-                print(f"  ✅ {channel_name} -> {found_url[:50]}...")
+                print(f"  ✅ {channel_name} -> {found_url[:50]}.../{channel_id}/mono.m3u8")
                 success_count += 1
             else:
                 print(f"  ⚠️ {channel_name} için kaynak kodda baseUrl bulunamadı.")

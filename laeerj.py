@@ -116,43 +116,44 @@ if not active_domain:
 
 # Kanal Listesi
 channel_ids = [
-    "yayinzirve", "yayininat", "yayin1", "yayinb2", "yayinb3", "yayinb4",
-    "yayinb5", "yayinbm1", "yayinbm2", "yayinss", "yayinss2", "yayint1",
-    "yayint2", "yayint3", "yayint4", "yayinsmarts", "yayinsms2", "yayinnbatv", 
-    "yayinex1", "yayinex2", "yayinex3", "yayinex4", "yayinex5", "yayinex6",
-    "yayinex7", "yayinex8", "yayineu1", "yayineu2"
+    "trgoals", "zirve", "inat", "yayin1", "b2", "b3", "b4",
+    "b5", "bm1", "bm2", "ss", "ss2", "t1",
+    "t2", "t3", "t4", "smarts", "sms2", "nbatv", 
+    "ex1", "ex2", "ex3", "ex4", "ex5", "ex6",
+    "ex7", "ex8", "eu1", "eu2"
 ]
 
 # Kanal isimleri (isteğe bağlı, daha okunabilir çıktı için)
 channel_names = {
-    "yayinzirve": "BeIN Sports 1",
-    "yayininat": "BeIN Sports 1",
+    "trgoals": "BeIN Sports 1",
+    "zirve": "BeIN Sports 1",
     "yayin1": "BeIN Sports 1",
-    "yayinb2": "BeIN Sports 2",
-    "yayinb3": "BeIN Sports 3",
-    "yayinb4": "BeIN Sports 4",
-    "yayinb5": "BeIN Sports 5",
-    "yayinbm1": "BeIN Sports Max 1",
-    "yayinbm2": "BeIN Sports Max 2",
-    "yayinss": "S Sport",
-    "yayinss2": "S Sport 2",
-    "yayint1": "Tivibu Spor 1",
-    "yayint2": "Tivibu Spor 2",
-    "yayint3": "Tivibu Spor 3",
-    "yayint4": "Tivibu Spor 4",
-    "yayinsmarts": "Smart Spor",
-    "yayinsms2": "Smart Spor 2",
-    "yayinnbatv": "NBA TV",
-    "yayinex1": "Exxen 1",
-    "yayinex2": "Exxen 2",
-    "yayinex3": "Exxen 3",
-    "yayinex4": "Exxen 4",
-    "yayinex5": "Exxen 5",
-    "yayinex6": "Exxen 6",
-    "yayinex7": "Exxen 7",
-    "yayinex8": "Exxen 8",
-    "yayineu1": "EuroSport 1",
-    "yayineu2": "EuroSport 2"
+    "inat": "BeIN Sports 1",
+    "b2": "BeIN Sports 2",
+    "b3": "BeIN Sports 3",
+    "b4": "BeIN Sports 4",
+    "b5": "BeIN Sports 5",
+    "bm1": "BeIN Sports Max 1",
+    "bm2": "BeIN Sports Max 2",
+    "ss": "S Sport",
+    "ss2": "S Sport 2",
+    "t1": "Tivibu Spor 1",
+    "t2": "Tivibu Spor 2",
+    "t3": "Tivibu Spor 3",
+    "t4": "Tivibu Spor 4",
+    "smarts": "Smart Spor",
+    "sms2": "Smart Spor 2",
+    "nbatv": "NBA TV",
+    "ex1": "Exxen 1",
+    "ex2": "Exxen 2",
+    "ex3": "Exxen 3",
+    "ex4": "Exxen 4",
+    "ex5": "Exxen 5",
+    "ex6": "Exxen 6",
+    "ex7": "Exxen 7",
+    "ex8": "Exxen 8",
+    "eu1": "EuroSport 1",
+    "eu2": "EuroSport 2"
 }
 
 header_content = """#EXTM3U

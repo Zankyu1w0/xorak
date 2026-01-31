@@ -125,7 +125,7 @@ channel_ids = [
 
 # Kanal isimleri (isteğe bağlı, daha okunabilir çıktı için)
 channel_names = {
-    "trgoals": "BeIN Sports 1",
+    "trgoals/mono": "BeIN Sports 1",
     "zirve": "BeIN Sports 1",
     "yayin1": "BeIN Sports 1",
     "inat": "BeIN Sports 1",

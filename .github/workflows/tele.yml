@@ -1,26 +1,34 @@
-name: TELE BOT
+name: TELEBOT M3U8
 on:
   schedule:
     - cron: '*/10 * * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
+
       - name: Install dependencies
         run: pip install requests
+
       - name: Run script
         run: python tele.py
+
       - name: Commit and Push
         run: |
-          git config --global user.name "bot"
-          git config --global user.email "bot@bot.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add tele.m3u8
-          git commit -m "Update m3u8" || exit 0
+          git commit -m "Auto update m3u8" || exit 0
           git push

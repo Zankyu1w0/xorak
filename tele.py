@@ -1,6 +1,5 @@
 import requests
 import re
-import time
 
 def get_m3u8():
     url = "https://teleontv.at.ua/"
@@ -34,9 +33,7 @@ def save_m3u8(link):
     print(f"Updated: {link}")
 
 if __name__ == "__main__":
-    while True:
-        m3u_link = get_m3u8()
-        if m3u_link:
-            save_m3u8(m3u_link)
-        time.sleep(600)
-      
+    m3u_link = get_m3u8()
+    if m3u_link:
+        save_m3u8(m3u_link)
+        

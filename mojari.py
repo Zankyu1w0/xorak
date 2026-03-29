@@ -26,7 +26,7 @@ BASE_PATTERN = "https://mahsunsports{}.xyz"
 CHANNELS = [
     "androstreamlivebiraz1", "androstreamlivebs1", "androstreamlivebs2", "androstreamlivebs3",
     "androstreamlivebs4", "androstreamlivebs5", "androstreamlivebsm1", "androstreamlivebsm2",
-    "androstreamlivess1", "androstreamlivess2", "androstreamlivessplus1", "androstreamlivessplus2", "androstreamlivets", "androstreamlivets1",
+    "androstreamlivess1", "androstreamlivess2", "androstreamlivessplus1", "androstreamliveidm", "androstreamlivecbcs", "androstreamlivessplus2", "androstreamlivets", "androstreamlivets1",
     "androstreamlivets2", "androstreamlivets3", "androstreamlivets4", "androstreamlivesm1",
     "androstreamlivesm2", "androstreamlivees1", "androstreamlivees2", "androstreamlivetb",
     "androstreamlivetb1", "androstreamlivetb2", "androstreamlivetb3", "androstreamlivetb4",

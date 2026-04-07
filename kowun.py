@@ -91,6 +91,8 @@ def get_channels_list():
         {"id": "trt-spor", "name": "TRT Spor"},
         {"id": "trt-yildiz", "name": "TRT Yildiz"},
         {"id": "trt1", "name": "TRT 1"},
+        {"id": "tabiiy", "name": "Tabiiy"},
+        {"id": "tabii1", "name": "Tabii1"},
         {"id": "aspor", "name": "A Spor"},
     ]
 

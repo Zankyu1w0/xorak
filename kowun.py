@@ -4,6 +4,7 @@ import os
 import urllib3
 import warnings
 
+# --- YAPILANDIRMA VE SSL UYARILARINI GİZLEME ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings('ignore')
 
@@ -29,8 +30,7 @@ def get_base_domain():
             loc = r.headers['location']
             r2 = requests.get(loc, headers=HEADERS, allow_redirects=False, timeout=10, verify=False)
             if 'location' in r2.headers:
-                base_domain = r2.headers['location'].strip().rstrip('/')
-                return base_domain
+                return r2.headers['location'].strip().rstrip('/')
         return base_domain
     except:
         return base_domain
@@ -43,10 +43,7 @@ def get_channel_m3u8(channel_id, base_domain):
         if fetch_match:
             fetch_url = fetch_match.group(1).strip()
             if not fetch_url.endswith(channel_id): fetch_url += channel_id
-            cust_headers = HEADERS.copy()
-            cust_headers['Origin'] = base_domain
-            cust_headers['Referer'] = base_domain
-            r2 = requests.get(fetch_url, headers=cust_headers, timeout=10, verify=False)
+            r2 = requests.get(fetch_url, headers=HEADERS, timeout=10, verify=False)
             m3u8_match = re.search(r'"(?:stream|url|source|deismackanal)":\s*"(.*?\.m3u8|.*?)"', r2.text)
             if m3u8_match:
                 return m3u8_match.group(1).replace('\\', '')
@@ -59,47 +56,49 @@ def main():
         os.makedirs(OUTPUT_FOLDER)
 
     base_domain = get_base_domain()
-    # Ana kanalları çekmek için liste
     main_channels = [
         {"id": "bein-sports-1", "name": "beIN Sports 1"},
         {"id": "bein-sports-2", "name": "beIN Sports 2"},
-        {"id": "s-sport", "name": "S Sport 1"},
         {"id": "trt-spor", "name": "TRT Spor"}
     ]
     
-    # Tabii kanalları (Tam istediğin isimlerle)
+    # Senin istediğin tam liste
     tabii_list = ["tabii", "tabii1", "tabii2", "tabii3", "tabii4", "tabii5", "tabii6"]
 
     template_url = None
-    template_id = None
 
     print(f"🚀 Kanallar taranıyor...")
 
     for ch in main_channels:
         url = get_channel_m3u8(ch['id'], base_domain)
         if url:
-            # Şablonu yakala (Örn: içinden bein-sports-1 geçen linki al)
+            # Şablonu alırken URL'nin sonundaki /hls/ kısmına kadar olan yeri alacağız
             if not template_url:
                 template_url = url
-                template_id = ch['id']
             
             with open(f"{OUTPUT_FOLDER}/{ch['id']}.m3u8", "w") as f:
                 f.write(f"{M3U8_HEADER}\n{url}")
             print(f"✅ {ch['id']} kaydedildi.")
 
-    # --- TABİİ KANALLARINI ÜRET ---
+    # --- TABİİ KANALLARI ÜRETİMİ (KESİN ÇÖZÜM) ---
     if template_url:
-        print(f"\n⚡ Tabii kanalları üretiliyor (Rakam hatası düzeltildi)...")
+        print(f"\n⚡ Tabii kanalları tertemiz oluşturuluyor...")
+        
+        # Örn: https://.../hls/bein-sports-1.m3u8 linkini / ile parçalıyoruz
+        url_parts = template_url.split('/')
+        # Son parçayı (bein-sports-1.m3u8 kısmını) atıyoruz, kalanları geri birleştiriyoruz
+        # Böylece elimizde sadece "https://.../hls" kısmı kalıyor
+        base_hls_url = "/".join(url_parts[:-1])
+
         for t_id in tabii_list:
-            # ÖNEMLİ: Burada direkt replace(template_id, t_id) yapıyoruz 
-            # template_id "bein-sports-1" olduğu için komple o metni silip "tabii1" yazar.
-            final_url = template_url.replace(template_id, t_id)
+            # Tertemiz link oluşturuyoruz: "https://.../hls" + "/" + "tabii1" + ".m3u8"
+            final_url = f"{base_hls_url}/{t_id}.m3u8"
             
             with open(f"{OUTPUT_FOLDER}/{t_id}.m3u8", "w") as f:
                 f.write(f"{M3U8_HEADER}\n{final_url}")
-            print(f"✨ {t_id}.m3u8 oluşturuldu -> Link: .../{t_id}.m3u8")
+            print(f"✨ {t_id}.m3u8 -> İçerik: {t_id}.m3u8 (Hata Giderildi)")
 
-    print(f"\nİşlem bitti. 'tabii11' gibi hatalar temizlendi.")
+    print(f"\n✅ İşlem bitti. 'tabii11' gibi saçmalıklar artık yok.")
 
 if __name__ == "__main__":
     main()

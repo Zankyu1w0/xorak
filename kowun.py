@@ -18,7 +18,6 @@ HEADERS = {
     'Referer': 'https://url24.link/'
 }
 
-# --- SABİT M3U8 BAŞLIĞI ---
 M3U8_HEADER = """#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-STREAM-INF:BANDWIDTH=5500000,AVERAGE-BANDWIDTH=8976000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",FRAME-RATE=25"""
@@ -43,14 +42,10 @@ def get_channel_m3u8(channel_id, base_domain):
     try:
         matches_url = f"{base_domain}/matches?id={channel_id}"
         r = requests.get(matches_url, headers=HEADERS, timeout=10, verify=False)
-        
-        # Güncel sistemdeki fetch yakalama mantığı
         fetch_match = re.search(r'fetch\(\s*["\'](.*?)["\']', r.text)
         
         if fetch_match:
             fetch_url = fetch_match.group(1).strip()
-            
-            # Eğer id URL'nin sonunda yoksa ekle
             if not fetch_url.endswith(channel_id): 
                 fetch_url += channel_id
             
@@ -59,13 +54,10 @@ def get_channel_m3u8(channel_id, base_domain):
             cust_headers['Referer'] = base_domain
             
             r2 = requests.get(fetch_url, headers=cust_headers, timeout=10, verify=False)
-            
-            # Güncel sistemdeki birleştirilmiş ve güçlendirilmiş regex mantığı
             m3u8_match = re.search(r'"(?:stream|url|source|deismackanal)":\s*"(.*?\.m3u8|.*?)"', r2.text)
             
             if m3u8_match:
                 link = m3u8_match.group(1).replace('\\', '')
-                # Geçerli bir link olup olmadığını kontrol et
                 if link.endswith('.m3u8') or link.startswith('http'):
                     return link
         return None
@@ -89,10 +81,10 @@ def get_channels_list():
         {"id": "aspor", "name": "A Spor"},
     ]
 
-# --- TABİİ KANALLARI İÇİN ÖZEL LİSTE ---
+# --- DÜZELTİLMİŞ TABİİ LİSTESİ ---
 def get_tabii_channels():
     return [
-        {"id": "tabii", "name": "Tabii"},
+        {"id": "tabii", "name": "Tabii Ana Kanal"},
         {"id": "tabii1", "name": "Tabii 1"},
         {"id": "tabii2", "name": "Tabii 2"},
         {"id": "tabii3", "name": "Tabii 3"},
@@ -105,65 +97,51 @@ def main():
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
 
-    print(f"{GREEN}--- AtomSporTV Tarayıcı (Güncel Klasör Modu) ---{RESET}")
+    print(f"{GREEN}--- AtomSporTV Tarayıcı ---{RESET}")
     
     base_domain = get_base_domain()
     channels = get_channels_list()
-
-    print(f"⚡ Linkler '{OUTPUT_FOLDER}' klasörüne yazılıyor...")
 
     count = 0
     template_url = None
     template_id = None
 
+    # Normal kanalları çek
     for i, channel in enumerate(channels):
         print(f"{i+1}. {channel['name']} taranıyor...", end=" ", flush=True)
-        
         m3u8_url = get_channel_m3u8(channel['id'], base_domain)
         
         if m3u8_url:
-            # Tabii kanalları için referans olarak ilk çalışan URL'yi kaydet
+            # Şablon URL'yi al (örnek: bein-sports-1 üzerinden)
             if not template_url:
                 template_url = m3u8_url
                 template_id = channel['id']
 
             file_name = f"{channel['id']}.m3u8"
             file_path = os.path.join(OUTPUT_FOLDER, file_name)
-            
-            file_content = f"{M3U8_HEADER}\n{m3u8_url}"
-            
             with open(file_path, "w", encoding="utf-8") as f:
-                f.write(file_content)
-                
-            print(f"{GREEN}✓ Kaydedildi: {file_name}{RESET}")
+                f.write(f"{M3U8_HEADER}\n{m3u8_url}")
+            print(f"{GREEN}✓{RESET}")
             count += 1
         else:
-            print("✗ Link bulunamadı")
+            print("✗")
 
-    # --- TABİİ KANALLARINI OLUŞTURMA BÖLÜMÜ ---
+    # Tabii kanallarını üret (Şablona göre)
     if template_url:
-        print(f"\n⚡ Özel 'Tabii' kanalları referans link kullanılarak oluşturuluyor...")
-        tabii_channels = get_tabii_channels()
-        
-        for channel in tabii_channels:
-            print(f"-> {channel['name']} oluşturuluyor...", end=" ", flush=True)
-            
-            # Referans URL'nin içinden (örneğin bein-sports-1) kısmını bulup tabii1, tabii2 vb. ile değiştiriyoruz.
-            tabii_m3u8_url = template_url.replace(template_id, channel['id'])
+        print(f"\n⚡ Tabii kanalları üretiliyor...")
+        for channel in get_tabii_channels():
+            # ID'yi şablon linkinde değiştiriyoruz
+            # Örn: bein-sports-1 -> tabii1
+            tabii_url = template_url.replace(template_id, channel['id'])
             
             file_name = f"{channel['id']}.m3u8"
             file_path = os.path.join(OUTPUT_FOLDER, file_name)
-            file_content = f"{M3U8_HEADER}\n{tabii_m3u8_url}"
-            
             with open(file_path, "w", encoding="utf-8") as f:
-                f.write(file_content)
-                
-            print(f"{GREEN}✓ Kaydedildi: {file_name}{RESET}")
+                f.write(f"{M3U8_HEADER}\n{tabii_url}")
+            print(f"-> {file_name} {GREEN}hazır{RESET}")
             count += 1
-    else:
-        print("\n⚠️ Çalışan hiçbir referans link bulunamadığı için Tabii kanalları eklenemedi!")
 
-    print(f"\n✅ İŞLEM TAMAM! Toplam {count} adet kanal '{OUTPUT_FOLDER}' klasörüne kaydedildi.")
+    print(f"\n✅ Toplam {count} kanal '{OUTPUT_FOLDER}' klasörüne kaydedildi.")
 
 if __name__ == "__main__":
     main()

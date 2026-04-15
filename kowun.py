@@ -89,6 +89,18 @@ def get_channels_list():
         {"id": "aspor", "name": "A Spor"},
     ]
 
+# --- TABİİ KANALLARI İÇİN ÖZEL LİSTE ---
+def get_tabii_channels():
+    return [
+        {"id": "tabii", "name": "Tabii"},
+        {"id": "tabii1", "name": "Tabii 1"},
+        {"id": "tabii2", "name": "Tabii 2"},
+        {"id": "tabii3", "name": "Tabii 3"},
+        {"id": "tabii4", "name": "Tabii 4"},
+        {"id": "tabii5", "name": "Tabii 5"},
+        {"id": "tabii6", "name": "Tabii 6"},
+    ]
+
 def main():
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
@@ -101,12 +113,20 @@ def main():
     print(f"⚡ Linkler '{OUTPUT_FOLDER}' klasörüne yazılıyor...")
 
     count = 0
+    template_url = None
+    template_id = None
+
     for i, channel in enumerate(channels):
         print(f"{i+1}. {channel['name']} taranıyor...", end=" ", flush=True)
         
         m3u8_url = get_channel_m3u8(channel['id'], base_domain)
         
         if m3u8_url:
+            # Tabii kanalları için referans olarak ilk çalışan URL'yi kaydet
+            if not template_url:
+                template_url = m3u8_url
+                template_id = channel['id']
+
             file_name = f"{channel['id']}.m3u8"
             file_path = os.path.join(OUTPUT_FOLDER, file_name)
             
@@ -120,7 +140,30 @@ def main():
         else:
             print("✗ Link bulunamadı")
 
-    print(f"\n✅ İŞLEM TAMAM! {count} adet kanal '{OUTPUT_FOLDER}' klasörüne kaydedildi.")
+    # --- TABİİ KANALLARINI OLUŞTURMA BÖLÜMÜ ---
+    if template_url:
+        print(f"\n⚡ Özel 'Tabii' kanalları referans link kullanılarak oluşturuluyor...")
+        tabii_channels = get_tabii_channels()
+        
+        for channel in tabii_channels:
+            print(f"-> {channel['name']} oluşturuluyor...", end=" ", flush=True)
+            
+            # Referans URL'nin içinden (örneğin bein-sports-1) kısmını bulup tabii1, tabii2 vb. ile değiştiriyoruz.
+            tabii_m3u8_url = template_url.replace(template_id, channel['id'])
+            
+            file_name = f"{channel['id']}.m3u8"
+            file_path = os.path.join(OUTPUT_FOLDER, file_name)
+            file_content = f"{M3U8_HEADER}\n{tabii_m3u8_url}"
+            
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(file_content)
+                
+            print(f"{GREEN}✓ Kaydedildi: {file_name}{RESET}")
+            count += 1
+    else:
+        print("\n⚠️ Çalışan hiçbir referans link bulunamadığı için Tabii kanalları eklenemedi!")
+
+    print(f"\n✅ İŞLEM TAMAM! Toplam {count} adet kanal '{OUTPUT_FOLDER}' klasörüne kaydedildi.")
 
 if __name__ == "__main__":
     main()

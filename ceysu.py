@@ -36,8 +36,8 @@ CHANNEL_MAP = [
 # --- ATOMSPOR TV TARAMA FONKSİYONLARI ---
 
 def find_active_atomsportv_domain():
-    print("🔍 Aktif AtomSporTV domaini aranıyor (480-1000)...")
-    for i in range(480, 1000):
+    print("🔍 Aktif AtomSporTV domaini aranıyor (501-1000)...")
+    for i in range(501, 1000):
         url = f"https://www.atomsportv{i}.top"
         try:
             response = requests.head(url, headers=HEADERS, timeout=2, allow_redirects=True)
@@ -48,7 +48,7 @@ def find_active_atomsportv_domain():
         except:
             continue
     
-    fallback = "https://www.atomsportv480.top"
+    fallback = "https://www.atomsportv501.top"
     print(f"❌ Domain bulunamadı, varsayılan deneniyor: {fallback}")
     return fallback
 

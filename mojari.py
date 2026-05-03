@@ -52,12 +52,12 @@ def main():
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
 
-    print("🔍 Andro Panel aktif domaini aranıyor (12-99 arası)...")
+    print("🔍 Andro Panel aktif domaini aranıyor (32-99 arası)...")
     
     # 1. Aktif Domaini Bul
     active_site = None
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        futures = [executor.submit(check_domain, i) for i in range(12, 100)]
+        futures = [executor.submit(check_domain, i) for i in range(32, 100)]
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result:

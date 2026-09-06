@@ -84,21 +84,8 @@ def get_m3u8(channel_id, domain):
         return None
 
 def create_m3u8_from_base(base_url, channel_id, file_name):
-    if "//" in base_url:
-        parts = base_url.split("//", 1)
-        protocol = parts[0] + "//"
-        rest = parts[1]
-        if "/" in rest:
-            domain_part, path_part = rest.split("/", 1)
-            path_parts = path_part.split("/", 1)
-            if len(path_parts) > 1:
-                new_url = protocol + domain_part + "/" + channel_id + "/" + path_parts[1]
-            else:
-                new_url = protocol + domain_part + "/" + channel_id
-        else:
-            new_url = base_url
-    else:
-        new_url = base_url
+    domain = re.sub(r'(https?://[^/]+)/.*', r'\1', base_url)
+    new_url = f"{domain}/hls/{channel_id}.m3u8"
     path = os.path.join(OUTPUT_FOLDER, f"{file_name}.m3u8")
     content = M3U8_HEADER + "\n" + new_url
     with open(path, "w", encoding="utf-8") as f:

@@ -2,8 +2,12 @@ import requests
 import re
 import os
 import warnings
+from urllib.parse import urljoin
 
-# --- AYARLAR ---
+# ============================================================
+# AYARLAR
+# ============================================================
+
 warnings.filterwarnings("ignore")
 
 HEADERS = {
@@ -15,16 +19,20 @@ HEADERS = {
     "Referer": "https://www.google.com/"
 }
 
-# --- KLASÖR ADI ---
 OUTPUT_FOLDER = "yula"
 
-# --- SABİT M3U8 BAŞLIĞI ---
+# ============================================================
+# SABİT M3U8 HEADER
+# ============================================================
+
 M3U8_HEADER = """#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-STREAM-INF:BANDWIDTH=5500000,AVERAGE-BANDWIDTH=8976000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2",FRAME-RATE=25"""
 
-# --- KANAL HARİTASI ---
-# Site ID -> Senin istediğin dosya adı
+# ============================================================
+# KANAL HARİTASI
+# ============================================================
+
 CHANNEL_MAP = [
     ("bein-sports-1", "ceydub1"),
     ("bein1", "arda"),
@@ -39,13 +47,16 @@ CHANNEL_MAP = [
     ("tivibu-spor-4", "ceydut4"),
 ]
 
-
-# --- ATOMSPORTV DOMAIN TARAMA ---
+# ============================================================
+# AKTİF DOMAIN BUL
+# ============================================================
 
 def find_active_atomsportv_domain():
+
     print("🔍 Aktif AtomSporTV domaini aranıyor (501-999)...")
 
     for i in range(501, 1000):
+
         url = f"https://www.atomsportv{i}.top"
 
         try:
@@ -57,12 +68,13 @@ def find_active_atomsportv_domain():
             )
 
             if 200 <= response.status_code < 400:
+
                 final_url = response.url.rstrip("/")
+
                 print(f"✅ Aktif Domain: {final_url}")
+
                 return final_url
 
-        except requests.RequestException:
-            continue
         except Exception:
             continue
 
@@ -75,17 +87,20 @@ def find_active_atomsportv_domain():
     return fallback
 
 
-# --- M3U8 BULMA ---
+# ============================================================
+# İLK KANALDAN KAYNAK ŞABLONU ÖĞREN
+# ============================================================
 
-def get_channel_m3u8(channel_id, base_domain):
+def discover_source(channel_id, base_domain):
+
+    print(f"\n🧠 Kaynak şablonu öğreniliyor: {channel_id}")
+
     local_headers = HEADERS.copy()
     local_headers["Referer"] = base_domain
 
+    matches_url = f"{base_domain}/matches?id={channel_id}"
+
     try:
-        # 1. matches?id= endpoint
-        matches_url = (
-            f"{base_domain}/matches?id={channel_id}"
-        )
 
         response = requests.get(
             matches_url,
@@ -97,164 +112,390 @@ def get_channel_m3u8(channel_id, base_domain):
 
         html = response.text
 
-        # 2. fetch URL'sini bul
+        # ----------------------------------------------------
+        # FETCH URL
+        # ----------------------------------------------------
+
         fetch_match = re.search(
-            r'fetch\(\s*["\'](.*?)["\']',
+            r'fetch\(\s*["\']([^"\']+)["\']',
             html,
             re.IGNORECASE
         )
 
         if not fetch_match:
+
+            print("❌ Fetch endpoint bulunamadı.")
+
             return None
 
         fetch_url_part = fetch_match.group(1).strip()
 
+        # ----------------------------------------------------
+        # FETCH URL'Yİ TAM URL'YE ÇEVİR
+        # ----------------------------------------------------
+
+        if fetch_url_part.startswith("http"):
+
+            fetch_url = fetch_url_part
+
+        else:
+
+            fetch_url = urljoin(
+                base_domain + "/",
+                fetch_url_part
+            )
+
+        # ----------------------------------------------------
+        # KANAL ID'SİNİN URL'DEKİ YERİNİ BELİRLE
+        # ----------------------------------------------------
+
+        if channel_id in fetch_url:
+
+            template_url = fetch_url.replace(
+                channel_id,
+                "{CHANNEL_ID}"
+            )
+
+        else:
+
+            separator = "&" if "?" in fetch_url else "?"
+
+            template_url = (
+                f"{fetch_url}"
+                f"{separator}id={{CHANNEL_ID}}"
+            )
+
+        print(f"✅ Kaynak şablonu bulundu:")
+        print(f"   {template_url}")
+
+        # ----------------------------------------------------
+        # İLK KANAL İÇİN VERİYİ AL
+        # ----------------------------------------------------
+
+        test_url = template_url.replace(
+            "{CHANNEL_ID}",
+            channel_id
+        )
+
         custom_headers = local_headers.copy()
         custom_headers["Origin"] = base_domain
 
-        # 3. Fetch URL oluştur
-        if fetch_url_part.startswith("http"):
-            fetch_url = fetch_url_part
-        elif fetch_url_part.startswith("/"):
-            fetch_url = f"{base_domain}{fetch_url_part}"
-        else:
-            fetch_url = f"{base_domain}/{fetch_url_part}"
-
-        # Kanal ID URL'de yoksa ekle
-        if not fetch_url.rstrip("/").endswith(channel_id):
-            if "?" in fetch_url:
-                fetch_url = f"{fetch_url}&id={channel_id}"
-            else:
-                fetch_url = (
-                    f"{fetch_url.rstrip('/')}/{channel_id}"
-                )
-
-        # 4. Fetch isteği
         response2 = requests.get(
-            fetch_url,
+            test_url,
             headers=custom_headers,
             timeout=10
         )
 
         response2.raise_for_status()
 
-        fetch_data = response2.text
+        data = response2.text
 
-        # 5. deismackanal alanını ara
-        m3u8_match = re.search(
-            r'"deismackanal"\s*:\s*"([^"]+)"',
-            fetch_data,
-            re.IGNORECASE
-        )
+        m3u8_url = extract_m3u8(data)
 
-        # 6. Alternatif alanları ara
-        if not m3u8_match:
-            m3u8_match = re.search(
-                r'"(?:stream|url|source)"\s*:\s*"([^"]*?\.m3u8[^"]*)"',
-                fetch_data,
-                re.IGNORECASE
-            )
+        if m3u8_url:
 
-        # 7. Herhangi bir .m3u8 URL'si ara
-        if not m3u8_match:
-            m3u8_match = re.search(
-                r'https?://[^"\'\s\\]+\.m3u8(?:[^"\'\s\\]*)?',
-                fetch_data,
-                re.IGNORECASE
-            )
+            print("✅ İlk kanalın M3U8 kaynağı bulundu.")
 
-            if m3u8_match:
-                return m3u8_match.group(0).replace("\\", "")
+            return {
+                "template": template_url,
+                "headers": custom_headers,
+                "first_url": m3u8_url
+            }
 
-        if m3u8_match:
-            return m3u8_match.group(1).replace("\\", "")
+        print("❌ İlk kanalın M3U8 adresi bulunamadı.")
 
-        return None
-
-    except requests.RequestException as e:
-        print(f"   ⚠️ İstek hatası: {e}")
         return None
 
     except Exception as e:
-        print(f"   ⚠️ Hata: {e}")
+
+        print(f"❌ Kaynak keşif hatası: {e}")
+
         return None
 
 
-# --- ANA PROGRAM ---
+# ============================================================
+# M3U8 ÇIKAR
+# ============================================================
+
+def extract_m3u8(data):
+
+    # --------------------------------------------------------
+    # deismackanal
+    # --------------------------------------------------------
+
+    match = re.search(
+        r'"deismackanal"\s*:\s*"([^"]+)"',
+        data,
+        re.IGNORECASE
+    )
+
+    if match:
+
+        return (
+            match.group(1)
+            .replace("\\/", "/")
+            .replace("\\", "")
+        )
+
+    # --------------------------------------------------------
+    # stream / url / source
+    # --------------------------------------------------------
+
+    match = re.search(
+        r'"(?:stream|url|source)"\s*:\s*"([^"]+?\.m3u8[^"]*)"',
+        data,
+        re.IGNORECASE
+    )
+
+    if match:
+
+        return (
+            match.group(1)
+            .replace("\\/", "/")
+            .replace("\\", "")
+        )
+
+    # --------------------------------------------------------
+    # Direkt M3U8 URL
+    # --------------------------------------------------------
+
+    match = re.search(
+        r'https?://[^"\'\s\\]+\.m3u8(?:[^"\'\s\\]*)?',
+        data,
+        re.IGNORECASE
+    )
+
+    if match:
+
+        return (
+            match.group(0)
+            .replace("\\/", "/")
+            .replace("\\", "")
+        )
+
+    return None
+
+
+# ============================================================
+# ŞABLON İLE KANAL BUL
+# ============================================================
+
+def get_channel_from_template(
+    channel_id,
+    source_template,
+    headers,
+    base_domain
+):
+
+    try:
+
+        url = source_template.replace(
+            "{CHANNEL_ID}",
+            channel_id
+        )
+
+        print(f"   🔗 {url}")
+
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=10
+        )
+
+        response.raise_for_status()
+
+        data = response.text
+
+        m3u8_url = extract_m3u8(data)
+
+        if m3u8_url:
+
+            return m3u8_url
+
+        return None
+
+    except Exception as e:
+
+        print(
+            f"   ⚠️ {channel_id} hata: {e}"
+        )
+
+        return None
+
+
+# ============================================================
+# DOSYA KAYDET
+# ============================================================
+
+def save_m3u8(file_name, m3u8_url):
+
+    file_path = os.path.join(
+        OUTPUT_FOLDER,
+        f"{file_name}.m3u8"
+    )
+
+    content = (
+        f"{M3U8_HEADER}\n"
+        f"{m3u8_url}"
+    )
+
+    with open(
+        file_path,
+        "w",
+        encoding="utf-8"
+    ) as f:
+
+        f.write(content)
+
+    print(
+        f"💾 Kaydedildi: {file_name}.m3u8"
+    )
+
+
+# ============================================================
+# ANA PROGRAM
+# ============================================================
 
 def main():
 
-    # Klasör oluştur
     os.makedirs(
         OUTPUT_FOLDER,
         exist_ok=True
     )
 
     print(
-        "--- Ceysu Bot (AtomSporTV) Başlatıldı ---"
+        "\n--- Ceysu Bot (AtomSporTV) Başlatıldı ---\n"
     )
 
-    # 1. Aktif domain bul
+    # --------------------------------------------------------
+    # DOMAIN
+    # --------------------------------------------------------
+
     base_domain = find_active_atomsportv_domain()
 
     print(
         f"\n⚡ Linkler '{OUTPUT_FOLDER}' "
-        "klasörüne yazılıyor...\n"
+        "klasörüne yazılıyor..."
     )
 
-    count = 0
+    # --------------------------------------------------------
+    # İLK ÇALIŞAN KANALDAN ŞABLON ÖĞREN
+    # --------------------------------------------------------
 
-    # 2. Kanalları tara
-    for site_id, file_name in CHANNEL_MAP:
+    source = None
+    source_channel = None
+
+    for channel_id, file_name in CHANNEL_MAP:
 
         print(
-            f"🔎 Taranıyor: {site_id} -> {file_name}.m3u8"
+            f"\n🔎 Kaynak aranıyor: "
+            f"{channel_id} -> {file_name}.m3u8"
         )
 
-        m3u8_url = get_channel_m3u8(
-            site_id,
+        source = discover_source(
+            channel_id,
+            base_domain
+        )
+
+        if source:
+
+            source_channel = channel_id
+
+            # İlk kanalın kendi M3U8 adresini kaydet
+            save_m3u8(
+                file_name,
+                source["first_url"]
+            )
+
+            break
+
+    # --------------------------------------------------------
+    # HİÇBİR KAYNAK BULUNAMADI
+    # --------------------------------------------------------
+
+    if not source:
+
+        print(
+            "\n❌ Hiçbir kanal için kaynak bulunamadı."
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # DİĞER KANALLARI AYNI ŞABLONLA BUL
+    # --------------------------------------------------------
+
+    print(
+        f"\n🚀 Kaynak şablonu '{source_channel}' "
+        "kanalından alındı."
+    )
+
+    print(
+        "🚀 Diğer kanallar aynı kaynak yapısıyla deneniyor...\n"
+    )
+
+    count = 1
+
+    for channel_id, file_name in CHANNEL_MAP:
+
+        # İlk kanalı tekrar isteme
+        if channel_id == source_channel:
+            continue
+
+        print(
+            f"🔎 {channel_id} -> {file_name}.m3u8"
+        )
+
+        m3u8_url = get_channel_from_template(
+            channel_id,
+            source["template"],
+            source["headers"],
             base_domain
         )
 
         if m3u8_url:
 
-            # Dosya içeriği
-            file_content = (
-                f"{M3U8_HEADER}\n"
-                f"{m3u8_url}"
-            )
-
-            # Dosya yolu
-            file_path = os.path.join(
-                OUTPUT_FOLDER,
-                f"{file_name}.m3u8"
-            )
-
-            # Dosyayı yaz
-            with open(
-                file_path,
-                "w",
-                encoding="utf-8"
-            ) as f:
-                f.write(file_content)
-
-            print(
-                f"💾 Kaydedildi: {file_name}.m3u8"
+            save_m3u8(
+                file_name,
+                m3u8_url
             )
 
             count += 1
 
         else:
+
             print(
-                f"⚠️ Bulunamadı: {file_name} "
-                f"(Kaynak: {site_id})"
+                f"⚠️ Bulunamadı: {file_name}"
             )
 
+    # --------------------------------------------------------
+    # SONUÇ
+    # --------------------------------------------------------
+
     print(
-        f"\n✅ İŞLEM TAMAM! "
-        f"Toplam {count} dosya güncellendi."
+        "\n========================================"
     )
 
+    print(
+        f"✅ İŞLEM TAMAM!"
+    )
+
+    print(
+        f"📁 Klasör: {OUTPUT_FOLDER}"
+    )
+
+    print(
+        f"📺 Güncellenen dosya: {count}"
+    )
+
+    print(
+        "========================================"
+    )
+
+
+# ============================================================
+# ÇALIŞTIR
+# ============================================================
 
 if __name__ == "__main__":
     main()

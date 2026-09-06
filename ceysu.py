@@ -22,6 +22,7 @@ M3U8_HEADER = """#EXTM3U
 # --- KANAL HARİTASI (Site ID -> Senin İstediğin Dosya Adı) ---
 CHANNEL_MAP = [
     ("bein-sports-1", "ceydub1"),
+    (bein1", "arda"),
     ("bein-sports-2", "ceydub2"),
     ("bein-sports-3", "ceydub3"),
     ("bein-sports-4", "ceydub4"),
